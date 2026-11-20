@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador ARQ (DES) - UNMSM FISI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom scrollbar for logs and tables */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- HEADER INSTITUCIONAL -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div class="flex items-start sm:items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-[11px] font-semibold tracking-wider uppercase text-slate-500">
+            UNMSM · FISI · CIENCIA DE LA COMPUTACIÓN | Modelos y Simulación · Simulación de Eventos Discretos (DES)
+          </p>
+          <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+            Simulación de Protocolos ARQ en Redes (Stop-and-Wait · Go-Back-N · Selective Repeat)
+          </h1>
+        </div>
+      </div>
+
+      <!-- Badges de Protocolos -->
+      <div class="flex flex-wrap items-center gap-2 text-xs font-medium">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+          <span class="w-2 h-2 rounded-full bg-blue-600"></span> Stop-and-Wait
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+          <span class="w-2 h-2 rounded-full bg-amber-500"></span> Go-Back-N
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span class="w-2 h-2 rounded-full bg-emerald-600"></span> Selective Repeat
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 flex-1 space-y-5">
+
+    <!-- PANEL SUPERIOR DE CONTROLES INTERACTIVOS -->
+    <section class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+
+        <!-- Selector Protocolo -->
+        <div class="lg:col-span-3">
+          <label class="block text-xs font-semibold text-slate-600 mb-1.5">Protocolo en vista (En vivo)</label>
+          <select id="protocolSelect" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900">
+            <option value="SAW">Stop-and-Wait ARQ (N = 1)</option>
+            <option value="GBN">Go-Back-N ARQ (Ventana N)</option>
+            <option value="SR" selected>Selective Repeat ARQ (Ventana N)</option>
+          </select>
+        </div>
+
+        <!-- Slider Probabilidad de pérdida -->
+        <div class="lg:col-span-2">
+          <div class="flex justify-between text-xs mb-1.5">
+            <span class="font-semibold text-slate-600">Pérdida (p)</span>
+            <span id="lossVal" class="font-mono font-bold text-blue-600">25%</span>
+          </div>
+          <input id="lossSlider" type="range" min="5" max="40" step="1" value="25" class="w-full accent-slate-900 cursor-pointer" />
+          <div class="flex justify-between text-[10px] text-slate-400 font-mono mt-0.5">
+            <span>5%</span>
+            <span>RTT=20ms</span>
+            <span>40%</span>
+          </div>
+        </div>
+
+        <!-- Slider Tamaño de ventana N -->
+        <div class="lg:col-span-2">
+          <div class="flex justify-between text-xs mb-1.5">
+            <span class="font-semibold text-slate-600">Ventana (N)</span>
+            <span id="winVal" class="font-mono font-bold text-amber-600">4</span>
+          </div>
+          <input id="winSlider" type="range" min="2" max="12" step="1" value="4" class="w-full accent-slate-900 cursor-pointer" />
+          <div class="flex justify-between text-[10px] text-slate-400 font-mono mt-0.5">
+            <span>2</span>
+            <span>GBN / SR</span>
+            <span>12</span>
+          </div>
+        </div>
+
+        <!-- Slider Total paquetes -->
+        <div class="lg:col-span-2">
+          <div class="flex justify-between text-xs mb-1.5">
+            <span class="font-semibold text-slate-600">Paquetes</span>
+            <span id="pktVal" class="font-mono font-bold text-emerald-600">25</span>
+          </div>
+          <input id="pktSlider" type="range" min="10" max="50" step="5" value="25" class="w-full accent-slate-900 cursor-pointer" />
+          <div class="flex justify-between text-[10px] text-slate-400 font-mono mt-0.5">
+            <span>10</span>
+            <span>Carga útil</span>
+            <span>50</span>
+          </div>
+        </div>
+
+        <!-- Semilla -->
+        <div class="lg:col-span-1">
+          <label class="block text-xs font-semibold text-slate-600 mb-1.5">Semilla</label>
+          <input id="seedInput" type="number" value="42" min="1" max="99999" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-2.5 py-2 text-sm font-mono font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900" />
+        </div>
+
+        <!-- Escenarios rápidos y botón Simular -->
+        <div class="sm:col-span-2 lg:col-span-2 flex flex-col gap-1.5">
+          <span class="text-[11px] font-semibold text-slate-500">Escenarios rápidos:</span>
+          <div class="flex flex-wrap items-center gap-1">
+            <button onclick="applyPreset(5)" class="px-2 py-1 text-xs rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 font-medium text-slate-700 transition">Baja</button>
+            <button onclick="applyPreset(15)" class="px-2 py-1 text-xs rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 font-medium text-slate-700 transition">Media</button>
+            <button onclick="applyPreset(25)" class="px-2 py-1 text-xs rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 font-semibold text-blue-700 transition">Base</button>
+            <button onclick="applyPreset(40)" class="px-2 py-1 text-xs rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 font-medium text-rose-700 transition">Crítica</button>
+            <button onclick="runFullSimulation()" class="ml-auto px-3.5 py-1.5 text-xs rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold shadow-xs transition cursor-pointer">
+              Simular
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- NAVEGACIÓN POR PESTAÑAS -->
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2">
+      <nav class="flex flex-wrap gap-1.5" role="tablist">
+        <button id="tab-btn-live" onclick="switchTab('live')" class="tab-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-900 text-white shadow-xs transition">
+          1 · En vivo
+        </button>
+        <button id="tab-btn-mc" onclick="switchTab('mc')" class="tab-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-200/70 transition">
+          2 · Resultados Monte Carlo (30 réplicas)
+        </button>
+        <button id="tab-btn-events" onclick="switchTab('events')" class="tab-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-200/70 transition">
+          3 · Paso a paso (Eventos)
+        </button>
+        <button id="tab-btn-theory" onclick="switchTab('theory')" class="tab-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-200/70 transition">
+          4 · Validación y Teoría
+        </button>
+      </nav>
+
+      <!-- Estado resumen rápido -->
+      <div class="flex items-center gap-3 text-xs text-slate-500 font-mono">
+        <span>Latencia tramo: <strong class="text-slate-800">10 ms</strong></span>
+        <span>·</span>
+        <span>Timeout: <strong class="text-slate-800">35 ms</strong></span>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- PESTAÑA 1: EN VIVO                                                     -->
+    <!-- ===================================================================== -->
+    <section id="tab-live" class="tab-panel space-y-5">
+
+      <!-- Barra de control de reproducción -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-3.5 sm:px-5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+        <div class="flex items-center gap-2.5">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Protocolo activo:</span>
+          <span id="liveProtocolBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+            Selective Repeat ARQ (N = 4)
+          </span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="playPauseBtn" onclick="togglePlay()" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition cursor-pointer">
+            <span id="playIcon">▶</span> <span id="playText">Reproducir</span>
+          </button>
+          <button onclick="stepForward()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold transition cursor-pointer">
+            Siguiente evento ⏭
+          </button>
+          <button onclick="resetPlayback()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold transition cursor-pointer">
+            ↺ Reiniciar
+          </button>
+          <div class="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 font-mono text-xs font-bold text-slate-900">
+            t = <span id="virtualClock">0.00</span> ms
+          </div>
+          <select id="speedSelect" class="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono font-semibold text-slate-700">
+            <option value="650">×0.5</option>
+            <option value="320" selected>×1.0</option>
+            <option value="120">×2.5</option>
+            <option value="35">×8.0</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Diagrama de Flujo del Canal (Emisor -> Canal No Confiable -> Receptor) -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-bold text-slate-900">Flujo de Transmisión en el Canal Estocástico (Ida y Vuelta)</h2>
+            <p class="text-xs text-slate-500">Visualización discreta de tramas de datos, pérdidas aleatorias, timeouts y confirmaciones ACK</p>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs font-mono">
+            <span class="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200">
+              Ventana: <strong id="windowRangeText" class="text-blue-700">[1 .. 4]</strong>
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200">
+              Entregados: <strong id="deliveredCountText" class="text-emerald-700">0 / 25</strong>
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200">
+              Retransmisiones: <strong id="retransCountText" class="text-amber-700">0</strong>
+            </span>
+          </div>
+        </div>
+
+        <!-- Canvas animado del enlace -->
+        <div class="w-full rounded-xl border border-slate-200 bg-slate-50/70 p-2">
+          <canvas id="linkCanvas" class="w-full block" style="height: 210px;"></canvas>
+        </div>
+
+        <!-- Estado de la Ventana Deslizante del Emisor y Buffer del Receptor -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-1">
+          <!-- Ventana Emisor -->
+          <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">1. Ventana Deslizante del Emisor</span>
+              <span class="text-[11px] text-slate-500 font-mono">base = <span id="senderBaseVal">1</span></span>
+            </div>
+            <div id="senderSlots" class="flex flex-wrap gap-1.5"></div>
+            <div class="flex flex-wrap gap-3 mt-2.5 text-[11px] text-slate-500">
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-emerald-500"></span> Confirmado (ACK)</span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-blue-500"></span> En ventana (enviado)</span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-amber-400"></span> Timeout / Retrans.</span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-slate-200"></span> Pendiente</span>
+            </div>
+          </div>
+
+          <!-- Buffer Receptor -->
+          <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">2. Buffer y Entrega en el Receptor</span>
+              <span class="text-[11px] text-slate-500 font-mono">esperado = <span id="receiverBaseVal">1</span></span>
+            </div>
+            <div id="receiverSlots" class="flex flex-wrap gap-1.5"></div>
+            <div class="flex flex-wrap gap-3 mt-2.5 text-[11px] text-slate-500">
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-emerald-600"></span> Entregado en orden</span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-purple-500"></span> En buffer out-of-order (SR)</span>
+              <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-slate-200"></span> No recibido</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fila inferior: Log de eventos + Gráfico de evolución acumulada -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Log en tiempo real -->
+        <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col">
+          <div class="flex items-center justify-between mb-2.5">
+            <h3 class="text-sm font-bold text-slate-900">Traza Cronológica en Tiempo Real</h3>
+            <span id="eventCounterBadge" class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">0 eventos</span>
+          </div>
+          <div id="liveLogContainer" class="flex-1 h-64 overflow-y-auto rounded-xl bg-slate-900 text-slate-100 p-3 font-mono text-xs space-y-1.5">
+            <div class="text-slate-400">Presiona "Reproducir" o "Siguiente evento" para iniciar...</div>
+          </div>
+        </div>
+
+        <!-- Gráfico de evolución temporal -->
+        <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col">
+          <div class="flex items-center justify-between mb-2.5">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Evolución Acumulada (Paquetes Útiles vs. Envíos Totales)</h3>
+              <p class="text-xs text-slate-500">La diferencia entre ambas curvas representa las retransmisiones acumuladas por pérdidas</p>
+            </div>
+          </div>
+          <div class="flex-1 w-full rounded-xl border border-slate-100 bg-slate-50/50 p-2">
+            <canvas id="liveChartCanvas" class="w-full block" style="height: 245px;"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PESTAÑA 2: RESULTADOS MONTE CARLO (30 RÉPLICAS)                       -->
+    <!-- ===================================================================== -->
+    <section id="tab-mc" class="tab-panel hidden space-y-5">
+
+      <!-- Tarjetas KPI comparativas -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="mcKpiCards">
+        <!-- Generado dinámicamente por JS -->
+      </div>
+
+      <!-- Tabla Estadística Monte Carlo -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Validación Estadística Monte Carlo (30 Réplicas Independientes)</h2>
+            <p class="text-xs text-slate-500">Resultados con media y desviación estándar (μ ± σ) para los parámetros seleccionados en el panel superior</p>
+          </div>
+          <span id="mcParamsTag" class="text-xs font-mono px-3 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+            p = 25% | N = 4 | Paquetes = 25
+          </span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-600">
+                <th class="py-3 px-4 font-bold">Protocolo ARQ</th>
+                <th class="py-3 px-4 font-bold">Tiempo Total Medio ± SD (ms)</th>
+                <th class="py-3 px-4 font-bold">Envíos Totales Medios</th>
+                <th class="py-3 px-4 font-bold">Retransmisiones Medias</th>
+                <th class="py-3 px-4 font-bold">Eficiencia Útil Media ± SD (%)</th>
+                <th class="py-3 px-4 font-bold">Ahorro de Tiempo vs. SAW</th>
+              </tr>
+            </thead>
+            <tbody id="mcTableBody" class="divide-y divide-slate-100 font-mono text-xs sm:text-sm">
+              <!-- Llenado por JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Gráficos Comparativos (Tiempo y Eficiencia) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
+          <h3 class="text-sm font-bold text-slate-900 mb-1">Curva de Sensibilidad: Tiempo Total vs. Pérdida (5% – 40%)</h3>
+          <p class="text-xs text-slate-500 mb-3">Promedio de 30 réplicas por nivel de pérdida manteniendo la ventana N actual</p>
+          <canvas id="mcTimeChart" class="w-full block" style="height: 260px;"></canvas>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
+          <h3 class="text-sm font-bold text-slate-900 mb-1">Curva de Sensibilidad: Eficiencia Útil vs. Pérdida (5% – 40%)</h3>
+          <p class="text-xs text-slate-500 mb-3">Proporción de paquetes útiles frente al total de envíos realizados en red</p>
+          <canvas id="mcEffChart" class="w-full block" style="height: 260px;"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PESTAÑA 3: PASO A PASO (TABLA DE EVENTOS)                             -->
+    <!-- ===================================================================== -->
+    <section id="tab-events" class="tab-panel hidden space-y-4">
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Registro Cronológico de Eventos Discretos</h2>
+            <p class="text-xs text-slate-500">Traza completa generada por el motor DES para la corrida con la semilla actual</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-semibold text-slate-600">Filtrar tipo:</label>
+            <select id="eventFilterSelect" onchange="renderEventsTable()" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
+              <option value="ALL">Todos los eventos</option>
+              <option value="SEND">Envíos y Retransmisiones</option>
+              <option value="LOSS">Pérdidas en canal</option>
+              <option value="TIMEOUT">Timeouts</option>
+              <option value="ACK">Recepción de ACK</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto max-h-[520px] overflow-y-auto rounded-xl border border-slate-200">
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead class="bg-slate-100 text-slate-700 sticky top-0 z-10 border-b border-slate-200">
+              <tr>
+                <th class="py-2.5 px-3 font-bold">#</th>
+                <th class="py-2.5 px-3 font-bold">Tiempo Virtual (ms)</th>
+                <th class="py-2.5 px-3 font-bold">Protocolo</th>
+                <th class="py-2.5 px-3 font-bold">Tipo de Evento</th>
+                <th class="py-2.5 px-3 font-bold">Paquete</th>
+                <th class="py-2.5 px-3 font-bold">Detalle del Estado del Sistema</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTableBody" class="divide-y divide-slate-100 font-mono text-xs">
+              <!-- Llenado por JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PESTAÑA 4: VALIDACIÓN Y TEORÍA                                        -->
+    <!-- ===================================================================== -->
+    <section id="tab-theory" class="tab-panel hidden space-y-5">
+
+      <!-- Validación Analítica -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+        <h2 class="text-base font-bold text-slate-900">1. Validación Analítica de Probabilidad de Fallo de Ciclo</h2>
+        <p class="text-sm text-slate-600 leading-relaxed">
+          Dado un canal simétrico no confiable con probabilidad de pérdida <span class="font-mono font-semibold text-slate-900">p</span> en el tramo de ida (DATO) y <span class="font-mono font-semibold text-slate-900">p</span> en el tramo de retorno (ACK), la probabilidad de que un intento complete exitosamente su ciclo dentro del RTT ideal (20 ms) es <span class="font-mono font-semibold">(1 - p)²</span>. Por tanto, la probabilidad compuesta de requerir retransmisión es:
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center bg-slate-50 rounded-xl border border-slate-200 p-4">
+          <div class="text-center md:text-left">
+            <span class="text-xs font-semibold uppercase text-slate-500">Fórmula Analítica</span>
+            <div class="text-lg font-mono font-bold text-slate-900 mt-1">
+              P(fallo) = 1 - (1 - p)²
+            </div>
+          </div>
+          <div class="text-center">
+            <span class="text-xs font-semibold uppercase text-slate-500">Sustitución con p actual</span>
+            <div id="theoryFormulaSub" class="text-sm font-mono font-semibold text-blue-700 mt-1">
+              1 - (1 - 0.25)² = 1 - 0.5625
+            </div>
+          </div>
+          <div class="text-center md:text-right">
+            <span class="text-xs font-semibold uppercase text-slate-500">Tasa de Retransmisión Teórica</span>
+            <div id="theoryFailResult" class="text-2xl font-mono font-bold text-emerald-700 mt-0.5">
+              43.75%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla comparativa de arquitectura -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
+        <h2 class="text-base font-bold text-slate-900">2. Comparativa Arquitectónica de los Protocolos Modelados</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50 text-slate-700">
+                <th class="py-3 px-4 font-bold">Dimensión</th>
+                <th class="py-3 px-4 font-bold text-blue-700">Stop-and-Wait ARQ</th>
+                <th class="py-3 px-4 font-bold text-amber-700">Go-Back-N ARQ (GBN)</th>
+                <th class="py-3 px-4 font-bold text-emerald-700">Selective Repeat ARQ (SR)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-slate-700">
+              <tr>
+                <td class="py-2.5 px-4 font-semibold">Ventana del Emisor</td>
+                <td class="py-2.5 px-4 font-mono">1 paquete</td>
+                <td class="py-2.5 px-4 font-mono">N paquetes</td>
+                <td class="py-2.5 px-4 font-mono">N paquetes</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-4 font-semibold">Ventana del Receptor</td>
+                <td class="py-2.5 px-4 font-mono">1 paquete</td>
+                <td class="py-2.5 px-4 font-mono">1 paquete (descarta fuera de orden)</td>
+                <td class="py-2.5 px-4 font-mono">N paquetes (buffer de reordenamiento)</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-4 font-semibold">Tipo de Confirmación</td>
+                <td class="py-2.5 px-4">ACK individual</td>
+                <td class="py-2.5 px-4">ACK acumulativo</td>
+                <td class="py-2.5 px-4">ACK selectivo por paquete</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-4 font-semibold">Gestión de Temporizadores</td>
+                <td class="py-2.5 px-4">1 temporizador único</td>
+                <td class="py-2.5 px-4">1 temporizador para el paquete <code class="font-mono">base</code></td>
+                <td class="py-2.5 px-4">1 temporizador independiente por paquete</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-4 font-semibold">Recuperación ante Pérdida</td>
+                <td class="py-2.5 px-4">Retransmite el único paquete pendiente</td>
+                <td class="py-2.5 px-4">Retransmite en bloque toda la ventana desde <code class="font-mono">base</code></td>
+                <td class="py-2.5 px-4">Retransmite exclusivamente el paquete perdido</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="border-t border-slate-200 bg-white py-3 text-center text-xs text-slate-500">
+    UNMSM · Facultad de Ingeniería de Sistemas e Informática · Escuela Profesional de Ciencia de la Computación — Simulador DES de Protocolos ARQ
+  </footer>
+
+  <!-- ===================================================================== -->
+  <!-- MOTOR DE SIMULACIÓN DE EVENTOS DISCRETOS (DES) Y VISUALIZACIÓN        -->
+  <!-- ===================================================================== -->
+  <script>
+    // 1. PRNG Determinista con Semilla (Mulberry32)
+    function createPRNG(seed) {
+      let a = seed >>> 0;
+      return function() {
+        a |= 0;
+        a = a + 0x6D2B79F5 | 0;
+        let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    // Constantes físicas del canal (mismas que el modelo Python/SimPy)
+    const ONE_WAY_LATENCY = 10.0; // ms
+    const TIMEOUT_MS = 35.0;      // ms
+
+    // Estado global de la aplicación
+    let state = {
+      protocol: 'SR',
+      lossProb: 0.25,
+      windowSize: 4,
+      totalPackets: 25,
+      seed: 42,
+      trace: null,
+      stepIndex: 0,
+      isPlaying: false,
+      timerId: null
+    };
+
+    // 2. Cola de Prioridad (Min-Heap) para el Reloj Virtual DES
+    class EventQueue {
+      constructor() {
+        this.items = [];
+      }
+      push(ev) {
+        this.items.push(ev);
+        this.items.sort((a, b) => a.time - b.time || a.order - b.order);
+      }
+      pop() {
+        return this.items.shift();
+      }
+      get length() {
+        return this.items.length;
+      }
+    }
+
+    // 3. Motor DES completo para SAW, GBN y SR
+    function simulateARQ(protocol, lossProb, windowSize, totalPackets, seed) {
+      const rng = createPRNG(seed);
+      const pq = new EventQueue();
+      let now = 0.0;
+      let orderCounter = 0;
+
+      const schedule = (delay, type, payload) => {
+        pq.push({
+          time: Number((now + delay).toFixed(4)),
+          order: orderCounter++,
+          type,
+          ...payload
+        });
+      };
+
+      let totalSends = 0;
+      let retransmissions = 0;
+      const eventsLog = [];
+      const historyPoints = [{ t: 0, delivered: 0, sends: 0 }];
+
+      // Estados visuales iniciales
+      let senderBase = 1;
+      let nextSeq = 1;
+      let receiverBase = 1;
+      const senderAcked = new Set();
+      const senderInFlight = new Set();
+      const senderTimedOut = new Set();
+      const receiverBuffer = new Set();
+      const inTransit = []; // Tramas viajando visualmente en el instante
+
+      const recordSnapshot = (evType, seq, desc, category) => {
+        eventsLog.push({
+          t: now,
+          protocol,
+          evType,
+          category,
+          seq,
+          desc,
+          senderBase,
+          receiverBase,
+          deliveredCount: receiverBase - 1,
+          totalSends,
+          retransmissions,
+          senderAcked: new Set(senderAcked),
+          senderInFlight: new Set(senderInFlight),
+          senderTimedOut: new Set(senderTimedOut),
+          receiverBuffer: new Set(receiverBuffer),
+          inTransit: inTransit.map(item => ({ ...item }))
+        });
+        historyPoints.push({
+          t: now,
+          delivered: receiverBase - 1,
+          sends: totalSends
+        });
+      };
+
+      // --- LÓGICA STOP-AND-WAIT ---
+      if (protocol === 'SAW') {
+        let currentAttempt = 0;
+        let timerToken = 0;
+
+        const sendPacket = (seq, isRetrans) => {
+          totalSends++;
+          if (isRetrans) {
+            retransmissions++;
+            senderTimedOut.add(seq);
+          }
+          senderInFlight.add(seq);
+          timerToken++;
+          const myToken = timerToken;
+          const pktId = `D-${seq}-${totalSends}`;
+          inTransit.push({ id: pktId, kind: 'DATA', seq, dir: 'RIGHT', lost: false });
+
+          recordSnapshot(
+            isRetrans ? 'RETRANS' : 'ENVÍO',
+            seq,
+            isRetrans ? `Emisor retransmite DATO #${seq} (intento ${currentAttempt + 1})` : `Emisor envía DATO #${seq}`,
+            'SEND'
+          );
+
+          schedule(ONE_WAY_LATENCY, 'DATA_ARRIVE', { seq, pktId });
+          schedule(TIMEOUT_MS, 'SAW_TIMEOUT', { seq, token: myToken });
+        };
+
+        sendPacket(1, false);
+
+        while (pq.length > 0 && senderBase <= totalPackets) {
+          const ev = pq.pop();
+          now = ev.time;
+
+          if (ev.type === 'DATA_ARRIVE') {
+            const idx = inTransit.findIndex(x => x.id === ev.pktId);
+            if (rng() < lossProb) {
+              if (idx !== -1) inTransit.splice(idx, 1);
+              recordSnapshot('PÉRDIDA', ev.seq, `X DATO #${ev.seq} perdido en canal de ida`, 'LOSS');
+            } else {
+              if (idx !== -1) inTransit.splice(idx, 1);
+              if (ev.seq === receiverBase) {
+                receiverBase++;
+              }
+              const ackId = `A-${ev.seq}-${orderCounter}`;
+              inTransit.push({ id: ackId, kind: 'ACK', seq: ev.seq, dir: 'LEFT', lost: false });
+              recordSnapshot('RECEPCIÓN', ev.seq, `Receptor recibe DATO #${ev.seq} OK -> envía ACK #${ev.seq}`, 'ACK');
+              schedule(ONE_WAY_LATENCY, 'ACK_ARRIVE', { seq: ev.seq, ackId });
+            }
+          } else if (ev.type === 'ACK_ARRIVE') {
+            const idx = inTransit.findIndex(x => x.id === ev.ackId);
+            if (rng() < lossProb) {
+              if (idx !== -1) inTransit.splice(idx, 1);
+              recordSnapshot('PÉRDIDA', ev.seq, `X ACK #${ev.seq} perdido en canal de retorno`, 'LOSS');
+            } else {
+              if (idx !== -1) inTransit.splice(idx, 1);
+              if (ev.seq === senderBase) {
+                timerToken++; // cancela timeout activo
+                senderAcked.add(ev.seq);
+                senderInFlight.delete(ev.seq);
+                senderTimedOut.delete(ev.seq);
+                senderBase++;
+                currentAttempt = 0;
+                recordSnapshot('ACK OK', ev.seq, `< Emisor recibe ACK #${ev.seq} confirmado`, 'ACK');
+                if (senderBase <= totalPackets) {
+                  sendPacket(senderBase, false);
+                }
+              }
+            }
+          } else if (ev.type === 'SAW_TIMEOUT') {
+            if (ev.token === timerToken && ev.seq === senderBase) {
+              currentAttempt++;
+              recordSnapshot('TIMEOUT', ev.seq, `! Timeout (35 ms) expirado para DATO #${ev.seq}`, 'TIMEOUT');
+              sendPacket(ev.seq, true);
+            }
+          }
+        }
+      }
+
+      // --- LÓGICA GO-BACK-N ---
+      else if (protocol === 'GBN') {
+        let timerToken = 0;
+        let timerRunning = false;
+
+        const startTimer = () => {
+          timerToken++;
+          timerRunning = true;
+          schedule(TIMEOUT_MS, 'GBN_TIMEOUT', { token: timerToken });
+        };
+
+        const transmitSingle = (seq, isRetrans) => {
+          totalSends++;
+          if (isRetrans) {
+            retransmissions++;
+            senderTimedOut.add(seq);
+          }
+          senderInFlight.add(seq);
+          const pktId = `D-${seq}-${totalSends}`;
+          inTransit.push({ id: pktId, kind: 'DATA', seq, dir: 'RIGHT' });
+          recordSnapshot(
+            isRetrans ? 'RETRANS' : 'ENVÍO',
+            seq,
+            isRetrans ? `Emisor retransmite DATO #${seq} (ventana GBN)` : `Emisor envía DATO #${seq} (ventana [${senderBase}..${Math.min(totalPackets, senderBase + windowSize - 1)}])`,
+            'SEND'
+          );
+          schedule(ONE_WAY_LATENCY, 'DATA_ARRIVE', { seq, pktId });
+        };
+
+        const fillWindow = () => {
+          while (nextSeq < senderBase + windowSize && nextSeq <= totalPackets) {
+            const wasEmpty = (senderBase === nextSeq);
+            transmitSingle(nextSeq, false);
+            nextSeq++;
+            if (wasEmpty || !timerRunning) {
+              startTimer();
+            }
+          }
+        };
+
+        fillWindow();
+
+        while (pq.length > 0 && senderBase <= totalPackets) {
+          const ev = pq.pop();
+          now = ev.time;
+
+          if (ev.type === 'DATA_ARRIVE') {
+            const idx = inTransit.findIndex(x => x.id === ev.pktId);
+            if (idx !== -1) inTransit.splice(idx, 1);
+
+            if (rng() < lossProb) {
+              recordSnapshot('PÉRDIDA', ev.seq, `X DATO #${ev.seq} perdido en canal`, 'LOSS');
+            } else {
+              if (ev.seq === receiverBase) {
+                receiverBase++;
+                const ackSeq = receiverBase - 1;
+                const ackId = `A-${ackSeq}-${orderCounter}`;
+                inTransit.push({ id: ackId, kind: 'ACK', seq: ackSeq, dir: 'LEFT' });
+                recordSnapshot('RECEPCIÓN', ev.seq, `Receptor acepta #${ev.seq} en orden -> ACK acumulativo #${ackSeq}`, 'ACK');
+                schedule(ONE_WAY_LATENCY, 'ACK_ARRIVE', { ackSeq, ackId });
+              } else {
+                const ackSeq = receiverBase - 1;
+                if (ackSeq >= 1) {
+                  const ackId = `A-${ackSeq}-${orderCounter}`;
+                  inTransit.push({ id: ackId, kind: 'ACK', seq: ackSeq, dir: 'LEFT' });
+                  recordSnapshot('DESCARTE', ev.seq, `Receptor descarta #${ev.seq} (fuera de orden, espera #${receiverBase}) -> reenvía ACK #${ackSeq}`, 'LOSS');
+                  schedule(ONE_WAY_LATENCY, 'ACK_ARRIVE', { ackSeq, ackId });
+                } else {
+                  recordSnapshot('DESCARTE', ev.seq, `Receptor descarta #${ev.seq} (espera #1)`, 'LOSS');
+                }
+              }
+            }
+          } else if (ev.type === 'ACK_ARRIVE') {
+            const idx = inTransit.findIndex(x => x.id === ev.ackId);
+            if (idx !== -1) inTransit.splice(idx, 1);
+
+            if (rng() < lossProb) {
+              recordSnapshot('PÉRDIDA', ev.ackSeq, `X ACK acumulativo #${ev.ackSeq} perdido`, 'LOSS');
+            } else if (ev.ackSeq >= senderBase) {
+              for (let s = senderBase; s <= ev.ackSeq; s++) {
+                senderAcked.add(s);
+                senderInFlight.delete(s);
+                senderTimedOut.delete(s);
+              }
+              senderBase = ev.ackSeq + 1;
+              recordSnapshot('ACK OK', ev.ackSeq, `< ACK acumulativo #${ev.ackSeq} recibido -> base avanza a ${senderBase}`, 'ACK');
+
+              if (senderBase > totalPackets) {
+                timerToken++;
+                timerRunning = false;
+              } else {
+                if (senderBase === nextSeq) {
+                  timerToken++;
+                  timerRunning = false;
+                } else {
+                  startTimer();
+                }
+                fillWindow();
+              }
+            }
+          } else if (ev.type === 'GBN_TIMEOUT') {
+            if (ev.token === timerToken && senderBase <= totalPackets) {
+              recordSnapshot('TIMEOUT', senderBase, `! Timeout en base #${senderBase} -> retransmite ventana [${senderBase}..${nextSeq - 1}]`, 'TIMEOUT');
+              startTimer();
+              for (let s = senderBase; s < nextSeq; s++) {
+                transmitSingle(s, true);
+              }
+            }
+          }
+        }
+      }
+
+      // --- LÓGICA SELECTIVE REPEAT ---
+      else if (protocol === 'SR') {
+        const pktTokens = {};
+
+        const sendSRPacket = (seq, isRetrans) => {
+          if (senderAcked.has(seq)) return;
+          totalSends++;
+          if (isRetrans) {
+            retransmissions++;
+            senderTimedOut.add(seq);
+          }
+          senderInFlight.add(seq);
+          pktTokens[seq] = (pktTokens[seq] || 0) + 1;
+          const myToken = pktTokens[seq];
+          const pktId = `D-${seq}-${totalSends}`;
+          inTransit.push({ id: pktId, kind: 'DATA', seq, dir: 'RIGHT' });
+
+          recordSnapshot(
+            isRetrans ? 'RETRANS' : 'ENVÍO',
+            seq,
+            isRetrans ? `Emisor retransmite selectivamente DATO #${seq}` : `Emisor envía DATO #${seq} (ventana [${senderBase}..${Math.min(totalPackets, senderBase + windowSize - 1)}])`,
+            'SEND'
+          );
+
+          schedule(ONE_WAY_LATENCY, 'DATA_ARRIVE', { seq, pktId });
+          schedule(TIMEOUT_MS, 'SR_TIMEOUT', { seq, token: myToken });
+        };
+
+        const fillSRWindow = () => {
+          while (nextSeq < senderBase + windowSize && nextSeq <= totalPackets) {
+            sendSRPacket(nextSeq, false);
+            nextSeq++;
+          }
+        };
+
+        fillSRWindow();
+
+        while (pq.length > 0 && senderBase <= totalPackets) {
+          const ev = pq.pop();
+          now = ev.time;
+
+          if (ev.type === 'DATA_ARRIVE') {
+            const idx = inTransit.findIndex(x => x.id === ev.pktId);
+            if (idx !== -1) inTransit.splice(idx, 1);
+
+            if (rng() < lossProb) {
+              recordSnapshot('PÉRDIDA', ev.seq, `X DATO #${ev.seq} perdido en canal`, 'LOSS');
+            } else {
+              if (ev.seq >= receiverBase && ev.seq < receiverBase + windowSize) {
+                receiverBuffer.add(ev.seq);
+                let deliveredNow = false;
+                while (receiverBuffer.has(receiverBase)) {
+                  receiverBuffer.delete(receiverBase);
+                  receiverBase++;
+                  deliveredNow = true;
+                }
+                const ackId = `A-${ev.seq}-${orderCounter}`;
+                inTransit.push({ id: ackId, kind: 'ACK', seq: ev.seq, dir: 'LEFT' });
+                recordSnapshot(
+                  'RECEPCIÓN',
+                  ev.seq,
+                  deliveredNow
+                    ? `Receptor entrega #${ev.seq} en orden -> envía ACK selectivo #${ev.seq}`
+                    : `Receptor guarda #${ev.seq} en buffer out-of-order -> envía ACK #${ev.seq}`,
+                  'ACK'
+                );
+                schedule(ONE_WAY_LATENCY, 'ACK_ARRIVE', { seq: ev.seq, ackId });
+              } else if (ev.seq < receiverBase) {
+                const ackId = `A-${ev.seq}-${orderCounter}`;
+                inTransit.push({ id: ackId, kind: 'ACK', seq: ev.seq, dir: 'LEFT' });
+                recordSnapshot('DUPLICADO', ev.seq, `Receptor recibe #${ev.seq} ya entregado -> reenvía ACK #${ev.seq}`, 'ACK');
+                schedule(ONE_WAY_LATENCY, 'ACK_ARRIVE', { seq: ev.seq, ackId });
+              }
+            }
+          } else if (ev.type === 'ACK_ARRIVE') {
+            const idx = inTransit.findIndex(x => x.id === ev.ackId);
+            if (idx !== -1) inTransit.splice(idx, 1);
+
+            if (rng() < lossProb) {
+              recordSnapshot('PÉRDIDA', ev.seq, `X ACK selectivo #${ev.seq} perdido`, 'LOSS');
+            } else if (!senderAcked.has(ev.seq)) {
+              pktTokens[ev.seq] = (pktTokens[ev.seq] || 0) + 1; // cancela timer individual
+              senderAcked.add(ev.seq);
+              senderInFlight.delete(ev.seq);
+              senderTimedOut.delete(ev.seq);
+
+              while (senderAcked.has(senderBase)) {
+                senderBase++;
+              }
+              recordSnapshot('ACK OK', ev.seq, `< ACK selectivo #${ev.seq} confirmado -> base en ${senderBase}`, 'ACK');
+              fillSRWindow();
+            }
+          } else if (ev.type === 'SR_TIMEOUT') {
+            if (pktTokens[ev.seq] === ev.token && !senderAcked.has(ev.seq)) {
+              recordSnapshot('TIMEOUT', ev.seq, `! Timeout individual en DATO #${ev.seq}`, 'TIMEOUT');
+              sendSRPacket(ev.seq, true);
+            }
+          }
+        }
+      }
+
+      const efficiency = totalSends > 0 ? (totalPackets / totalSends) * 100 : 100;
+      return {
+        protocol,
+        totalTime: now,
+        totalSends,
+        retransmissions,
+        efficiency,
+        eventsLog,
+        historyPoints
+      };
+    }
+
+    // 4. Ejecución Monte Carlo (30 réplicas)
+    function runMonteCarlo(protocol, lossProb, windowSize, totalPackets, baseSeed, replicas = 30) {
+      const times = [];
+      const sends = [];
+      const retrans = [];
+      const effs = [];
+
+      for (let i = 0; i < replicas; i++) {
+        const res = simulateARQ(protocol, lossProb, windowSize, totalPackets, baseSeed + i * 17);
+        times.push(res.totalTime);
+        sends.push(res.totalSends);
+        retrans.push(res.retransmissions);
+        effs.push(res.efficiency);
+      }
+
+      const mean = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+      const sd = (arr, m) => Math.sqrt(arr.reduce((acc, v) => acc + Math.pow(v - m, 2), 0) / (arr.length - 1));
+
+      const tMean = mean(times);
+      const eMean = mean(effs);
+
+      return {
+        timeMean: tMean,
+        timeSD: sd(times, tMean),
+        sendsMean: mean(sends),
+        retransMean: mean(retrans),
+        effMean: eMean,
+        effSD: sd(effs, eMean)
+      };
+    }
+
+    // 5. Controladores de Interfaz y Pestañas
+    function syncInputsToState() {
+      state.protocol = document.getElementById('protocolSelect').value;
+      state.lossProb = parseInt(document.getElementById('lossSlider').value, 10) / 100;
+      state.windowSize = parseInt(document.getElementById('winSlider').value, 10);
+      state.totalPackets = parseInt(document.getElementById('pktSlider').value, 10);
+      state.seed = parseInt(document.getElementById('seedInput').value, 10) || 42;
+
+      document.getElementById('lossVal').textContent = `${Math.round(state.lossProb * 100)}%`;
+      document.getElementById('winVal').textContent = state.windowSize;
+      document.getElementById('pktVal').textContent = state.totalPackets;
+
+      // Actualizar badge de protocolo en vivo
+      const badge = document.getElementById('liveProtocolBadge');
+      if (state.protocol === 'SAW') {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200';
+        badge.textContent = 'Stop-and-Wait ARQ (N = 1)';
+      } else if (state.protocol === 'GBN') {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200';
+        badge.textContent = `Go-Back-N ARQ (N = ${state.windowSize})`;
+      } else {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200';
+        badge.textContent = `Selective Repeat ARQ (N = ${state.windowSize})`;
+      }
+
+      updateTheoryTab();
+    }
+
+    function applyPreset(pct) {
+      document.getElementById('lossSlider').value = pct;
+      runFullSimulation();
+    }
+
+    function switchTab(tabKey) {
+      document.querySelectorAll('.tab-panel').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.className = 'tab-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-200/70 transition cursor-pointer';
+      });
+
+      document.getElementById(`tab-${tabKey}`).classList.remove('hidden');
+      document.getElementById(`tab-btn-${tabKey}`).className = 'tab-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-900 text-white shadow-xs transition cursor-pointer';
+
+      if (tabKey === 'live') {
+        renderLiveFrame();
+      } else if (tabKey === 'mc') {
+        renderMonteCarloSection();
+      } else if (tabKey === 'events') {
+        renderEventsTable();
+      }
+    }
+
+    function runFullSimulation() {
+      stopPlay();
+      syncInputsToState();
+      state.trace = simulateARQ(state.protocol, state.lossProb, state.windowSize, state.totalPackets, state.seed);
+      state.stepIndex = 0;
+
+      renderLiveFrame();
+      renderEventsTable();
+      if (!document.getElementById('tab-mc').classList.contains('hidden')) {
+        renderMonteCarloSection();
+      }
+    }
+
+    // 6. Controles de Reproducción En Vivo
+    function togglePlay() {
+      if (state.isPlaying) {
+        stopPlay();
+      } else {
+        if (!state.trace || state.stepIndex >= state.trace.eventsLog.length - 1) {
+          state.stepIndex = 0;
+        }
+        state.isPlaying = true;
+        document.getElementById('playIcon').textContent = '⏸';
+        document.getElementById('playText').textContent = 'Pausar';
+        const delay = parseInt(document.getElementById('speedSelect').value, 10);
+        state.timerId = setInterval(() => {
+          if (state.stepIndex < state.trace.eventsLog.length - 1) {
+            state.stepIndex++;
+            renderLiveFrame();
+          } else {
+            stopPlay();
+          }
+        }, delay);
+      }
+    }
+
+    function stopPlay() {
+      state.isPlaying = false;
+      if (state.timerId) {
+        clearInterval(state.timerId);
+        state.timerId = null;
+      }
+      document.getElementById('playIcon').textContent = '▶';
+      document.getElementById('playText').textContent = 'Reproducir';
+    }
+
+    function stepForward() {
+      stopPlay();
+      if (!state.trace) return;
+      if (state.stepIndex < state.trace.eventsLog.length - 1) {
+        state.stepIndex++;
+        renderLiveFrame();
+      }
+    }
+
+    function resetPlayback() {
+      stopPlay();
+      state.stepIndex = 0;
+      renderLiveFrame();
+    }
+
+    // 7. Renderizado del Frame Actual En Vivo
+    function renderLiveFrame() {
+      if (!state.trace || state.trace.eventsLog.length === 0) return;
+      const snap = state.trace.eventsLog[state.stepIndex];
+      const effWin = state.protocol === 'SAW' ? 1 : state.windowSize;
+
+      document.getElementById('virtualClock').textContent = snap.t.toFixed(2);
+      document.getElementById('senderBaseVal').textContent = snap.senderBase;
+      document.getElementById('receiverBaseVal').textContent = snap.receiverBase;
+      document.getElementById('windowRangeText').textContent = `[${Math.min(snap.senderBase, state.totalPackets)} .. ${Math.min(state.totalPackets, snap.senderBase + effWin - 1)}]`;
+      document.getElementById('deliveredCountText').textContent = `${snap.deliveredCount} / ${state.totalPackets}`;
+      document.getElementById('retransCountText').textContent = snap.retransmissions;
+      document.getElementById('eventCounterBadge').textContent = `Evento ${state.stepIndex + 1} / ${state.trace.eventsLog.length}`;
+
+      // Render slots del Emisor
+      const senderContainer = document.getElementById('senderSlots');
+      senderContainer.innerHTML = '';
+      for (let i = 1; i <= state.totalPackets; i++) {
+        const div = document.createElement('div');
+        let cls = 'bg-slate-200 text-slate-600 border-slate-300';
+        if (snap.senderAcked.has(i)) {
+          cls = 'bg-emerald-500 text-white border-emerald-600';
+        } else if (snap.senderTimedOut.has(i)) {
+          cls = 'bg-amber-400 text-slate-900 border-amber-500 font-bold';
+        } else if (snap.senderInFlight.has(i)) {
+          cls = 'bg-blue-500 text-white border-blue-600 font-bold';
+        } else if (i >= snap.senderBase && i < snap.senderBase + effWin) {
+          cls = 'bg-blue-50 text-blue-700 border-blue-300 border-dashed';
+        }
+        div.className = `w-7 h-7 rounded-md border text-[11px] font-mono flex items-center justify-center transition ${cls}`;
+        div.textContent = i;
+        senderContainer.appendChild(div);
+      }
+
+      // Render slots del Receptor
+      const receiverContainer = document.getElementById('receiverSlots');
+      receiverContainer.innerHTML = '';
+      for (let i = 1; i <= state.totalPackets; i++) {
+        const div = document.createElement('div');
+        let cls = 'bg-slate-200 text-slate-600 border-slate-300';
+        if (i < snap.receiverBase) {
+          cls = 'bg-emerald-600 text-white border-emerald-700';
+        } else if (snap.receiverBuffer.has(i)) {
+          cls = 'bg-purple-500 text-white border-purple-600 font-bold';
+        }
+        div.className = `w-7 h-7 rounded-md border text-[11px] font-mono flex items-center justify-center transition ${cls}`;
+        div.textContent = i;
+        receiverContainer.appendChild(div);
+      }
+
+      // Render Log cronológico
+      const logBox = document.getElementById('liveLogContainer');
+      const startSlice = Math.max(0, state.stepIndex - 30);
+      const visibleLogs = state.trace.eventsLog.slice(startSlice, state.stepIndex + 1);
+      logBox.innerHTML = visibleLogs.map((item, idx) => {
+        const isCurrent = (startSlice + idx === state.stepIndex);
+        let colorCls = 'text-slate-300';
+        if (item.category === 'LOSS') colorCls = 'text-rose-400';
+        else if (item.category === 'TIMEOUT') colorCls = 'text-amber-400';
+        else if (item.category === 'ACK') colorCls = 'text-emerald-400';
+        else if (item.category === 'SEND') colorCls = 'text-sky-300';
+
+        return `<div class="${isCurrent ? 'bg-slate-800 px-2 py-1 rounded border-l-2 border-white font-semibold' : 'px-2 py-0.5'} ${colorCls}">
+          <span class="text-slate-400">[${item.t.toFixed(2).padStart(6, ' ')} ms]</span> ${item.desc}
+        </div>`;
+      }).join('');
+      logBox.scrollTop = logBox.scrollHeight;
+
+      drawLinkCanvas(snap);
+      drawLiveEvolutionChart(snap.t);
+    }
+
+    // 8. Dibujo Canvas Animado del Enlace (Emisor <-> Canal <-> Receptor)
+    function drawLinkCanvas(snap) {
+      const canvas = document.getElementById('linkCanvas');
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+
+      const W = rect.width;
+      const H = rect.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const padX = 28;
+      const boxW = Math.min(140, W * 0.22);
+      const boxH = 120;
+      const boxY = (H - boxH) / 2;
+
+      const senderX = padX;
+      const receiverX = W - padX - boxW;
+      const channelStartX = senderX + boxW + 14;
+      const channelEndX = receiverX - 14;
+
+      // Nodo Emisor
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, senderX, boxY, boxW, boxH, 12, true, true);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 12px Inter';
+      ctx.textAlign = 'center';
+      ctx.fillText('EMISOR', senderX + boxW / 2, boxY + 28);
+      ctx.fillStyle = '#64748b';
+      ctx.font = '11px JetBrains Mono';
+      ctx.fillText(`Base: #${snap.senderBase}`, senderX + boxW / 2, boxY + 52);
+      ctx.fillText(`Envíos: ${snap.totalSends}`, senderX + boxW / 2, boxY + 72);
+      ctx.fillStyle = '#d97706';
+      ctx.fillText(`Retrans: ${snap.retransmissions}`, senderX + boxW / 2, boxY + 92);
+
+      // Nodo Receptor
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#cbd5e1';
+      roundRect(ctx, receiverX, boxY, boxW, boxH, 12, true, true);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 12px Inter';
+      ctx.fillText('RECEPTOR', receiverX + boxW / 2, boxY + 28);
+      ctx.fillStyle = '#64748b';
+      ctx.font = '11px JetBrains Mono';
+      ctx.fillText(`Espera: #${snap.receiverBase}`, receiverX + boxW / 2, boxY + 52);
+      ctx.fillStyle = '#059669';
+      ctx.fillText(`OK: ${snap.deliveredCount}/${state.totalPackets}`, receiverX + boxW / 2, boxY + 72);
+      ctx.fillStyle = '#7c3aed';
+      ctx.fillText(`Buffer: ${snap.receiverBuffer.size}`, receiverX + boxW / 2, boxY + 92);
+
+      // Carriles del canal
+      const topLaneY = boxY + 38;
+      const botLaneY = boxY + 84;
+
+      ctx.strokeStyle = '#94a3b8';
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(channelStartX, topLaneY);
+      ctx.lineTo(channelEndX, topLaneY);
+      ctx.moveTo(channelStartX, botLaneY);
+      ctx.lineTo(channelEndX, botLaneY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '10px Inter';
+      ctx.fillText(`Canal Ida (DATO · 10 ms · p=${Math.round(state.lossProb * 100)}%)`, (channelStartX + channelEndX) / 2, topLaneY - 12);
+      ctx.fillText(`Canal Retorno (ACK · 10 ms · p=${Math.round(state.lossProb * 100)}%)`, (channelStartX + channelEndX) / 2, botLaneY + 20);
+
+      // Paquetes en tránsito en este instante
+      const rightItems = snap.inTransit.filter(x => x.dir === 'RIGHT');
+      const leftItems = snap.inTransit.filter(x => x.dir === 'LEFT');
+
+      rightItems.forEach((item, idx) => {
+        const frac = (idx + 1) / (rightItems.length + 1);
+        const px = channelStartX + frac * (channelEndX - channelStartX);
+        drawPacketPill(ctx, px, topLaneY, `D#${item.seq}`, '#2563eb');
+      });
+
+      leftItems.forEach((item, idx) => {
+        const frac = (idx + 1) / (leftItems.length + 1);
+        const px = channelEndX - frac * (channelEndX - channelStartX);
+        drawPacketPill(ctx, px, botLaneY, `ACK#${item.seq}`, '#059669');
+      });
+
+      // Indicador visual de evento actual
+      if (snap.category === 'LOSS') {
+        ctx.fillStyle = '#e11d48';
+        ctx.font = 'bold 12px Inter';
+        ctx.fillText(`✕ PÉRDIDA EN CANAL (Paquete #${snap.seq})`, W / 2, H - 12);
+      } else if (snap.category === 'TIMEOUT') {
+        ctx.fillStyle = '#d97706';
+        ctx.font = 'bold 12px Inter';
+        ctx.fillText(`⏱ TIMEOUT 35 ms (Paquete #${snap.seq})`, W / 2, H - 12);
+      }
+    }
+
+    function drawPacketPill(ctx, cx, cy, label, color) {
+      const w = 54;
+      const h = 22;
+      ctx.fillStyle = color;
+      roundRect(ctx, cx - w / 2, cy - h / 2, w, h, 6, true, false);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px JetBrains Mono';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, cx, cy + 3.5);
+    }
+
+    function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+      if (fill) ctx.fill();
+      if (stroke) ctx.stroke();
+    }
+
+    // 9. Gráfico de Evolución Acumulada en Vivo
+    function drawLiveEvolutionChart(currentT) {
+      const canvas = document.getElementById('liveChartCanvas');
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+
+      const W = rect.width;
+      const H = rect.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const pts = state.trace.historyPoints.filter(p => p.t <= currentT);
+      const maxT = Math.max(state.trace.totalTime, 100);
+      const maxY = Math.max(state.trace.totalSends, state.totalPackets, 10);
+
+      const padL = 42, padR = 16, padT = 20, padB = 28;
+      const plotW = W - padL - padR;
+      const plotH = H - padT - padB;
+
+      // Grid horizontal
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      ctx.font = '10px JetBrains Mono';
+      ctx.fillStyle = '#64748b';
+      ctx.textAlign = 'right';
+
+      for (let g = 0; g <= 4; g++) {
+        const yVal = Math.round((maxY * g) / 4);
+        const yPos = padT + plotH - (plotH * g) / 4;
+        ctx.beginPath();
+        ctx.moveTo(padL, yPos);
+        ctx.lineTo(padL + plotW, yPos);
+        ctx.stroke();
+        ctx.fillText(yVal, padL - 6, yPos + 3);
+      }
+
+      // Eje X labels
+      ctx.textAlign = 'center';
+      for (let g = 0; g <= 4; g++) {
+        const tVal = Math.round((maxT * g) / 4);
+        const xPos = padL + (plotW * g) / 4;
+        ctx.fillText(`${tVal}ms`, xPos, H - 8);
+      }
+
+      if (pts.length > 0) {
+        // Línea Envíos Totales (Ámbar)
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        pts.forEach((p, idx) => {
+          const x = padL + (p.t / maxT) * plotW;
+          const y = padT + plotH - (p.sends / maxY) * plotH;
+          if (idx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // Línea Paquetes Entregados (Esmeralda)
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        pts.forEach((p, idx) => {
+          const x = padL + (p.t / maxT) * plotW;
+          const y = padT + plotH - (p.delivered / maxY) * plotH;
+          if (idx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+
+      // Leyenda superior
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(padL + 8, 6, 10, 10);
+      ctx.fillStyle = '#334155';
+      ctx.font = '11px Inter';
+      ctx.fillText('Envíos Totales (incluye retransmisiones)', padL + 22, 15);
+
+      ctx.fillStyle = '#10b981';
+      ctx.fillRect(padL + 245, 6, 10, 10);
+      ctx.fillStyle = '#334155';
+      ctx.fillText('Paquetes Útiles Entregados', padL + 259, 15);
+    }
+
+    // 10. Renderizado Pestaña 2: Monte Carlo (30 réplicas)
+    function renderMonteCarloSection() {
+      const p = state.lossProb;
+      const w = state.windowSize;
+      const pkts = state.totalPackets;
+      const seed = state.seed;
+
+      document.getElementById('mcParamsTag').textContent = `p = ${Math.round(p * 100)}% | N = ${w} | Paquetes = ${pkts}`;
+
+      const mcSAW = runMonteCarlo('SAW', p, 1, pkts, seed, 30);
+      const mcGBN = runMonteCarlo('GBN', p, w, pkts, seed, 30);
+      const mcSR  = runMonteCarlo('SR',  p, w, pkts, seed, 30);
+
+      const cardsData = [
+        { name: 'Stop-and-Wait ARQ', badge: 'N = 1', color: 'blue', data: mcSAW },
+        { name: `Go-Back-N ARQ`, badge: `N = ${w}`, color: 'amber', data: mcGBN },
+        { name: `Selective Repeat ARQ`, badge: `N = ${w}`, color: 'emerald', data: mcSR }
+      ];
+
+      document.getElementById('mcKpiCards').innerHTML = cardsData.map(c => `
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-bold text-slate-900">${c.name}</span>
+            <span class="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-${c.color}-50 text-${c.color}-700 border border-${c.color}-200">${c.badge}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div class="text-[11px] text-slate-500">Tiempo Medio</div>
+              <div class="text-base font-mono font-bold text-slate-900">${c.data.timeMean.toFixed(1)} ms</div>
+              <div class="text-[10px] font-mono text-slate-400">± ${c.data.timeSD.toFixed(1)} ms</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div class="text-[11px] text-slate-500">Eficiencia Útil</div>
+              <div class="text-base font-mono font-bold text-${c.color}-700">${c.data.effMean.toFixed(1)}%</div>
+              <div class="text-[10px] font-mono text-slate-400">± ${c.data.effSD.toFixed(1)}%</div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      const rows = [
+        { label: 'Stop-and-Wait ARQ (N=1)', d: mcSAW, cls: 'text-blue-700' },
+        { label: `Go-Back-N ARQ (N=${w})`, d: mcGBN, cls: 'text-amber-700' },
+        { label: `Selective Repeat ARQ (N=${w})`, d: mcSR, cls: 'text-emerald-700' }
+      ];
+
+      document.getElementById('mcTableBody').innerHTML = rows.map(r => {
+        const saving = ((mcSAW.timeMean - r.d.timeMean) / mcSAW.timeMean) * 100;
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-4 font-sans font-bold ${r.cls}">${r.label}</td>
+            <td class="py-3 px-4">${r.d.timeMean.toFixed(1)} ± ${r.d.timeSD.toFixed(1)}</td>
+            <td class="py-3 px-4">${r.d.sendsMean.toFixed(1)}</td>
+            <td class="py-3 px-4">${r.d.retransMean.toFixed(1)}</td>
+            <td class="py-3 px-4 font-bold">${r.d.effMean.toFixed(1)} ± ${r.d.effSD.toFixed(1)}%</td>
+            <td class="py-3 px-4">${saving > 0.5 ? `-${saving.toFixed(1)}% más rápido` : 'Referencia base'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // Curvas de sensibilidad 5%, 15%, 25%, 40%
+      const lossLevels = [0.05, 0.15, 0.25, 0.40];
+      const sawSeries = lossLevels.map(lp => runMonteCarlo('SAW', lp, 1, pkts, seed, 30));
+      const gbnSeries = lossLevels.map(lp => runMonteCarlo('GBN', lp, w, pkts, seed, 30));
+      const srSeries  = lossLevels.map(lp => runMonteCarlo('SR',  lp, w, pkts, seed, 30));
+
+      drawComparisonLineChart(
+        'mcTimeChart',
+        ['5%', '15%', '25%', '40%'],
+        [
+          { label: 'Stop-and-Wait', color: '#2563eb', values: sawSeries.map(s => s.timeMean) },
+          { label: `Go-Back-N (N=${w})`, color: '#f59e0b', values: gbnSeries.map(s => s.timeMean) },
+          { label: `Selective Repeat (N=${w})`, color: '#10b981', values: srSeries.map(s => s.timeMean) }
+        ],
+        'ms'
+      );
+
+      drawComparisonLineChart(
+        'mcEffChart',
+        ['5%', '15%', '25%', '40%'],
+        [
+          { label: 'Stop-and-Wait', color: '#2563eb', values: sawSeries.map(s => s.effMean) },
+          { label: `Go-Back-N (N=${w})`, color: '#f59e0b', values: gbnSeries.map(s => s.effMean) },
+          { label: `Selective Repeat (N=${w})`, color: '#10b981', values: srSeries.map(s => s.effMean) }
+        ],
+        '%'
+      );
+    }
+
+    function drawComparisonLineChart(canvasId, xLabels, series, unit) {
+      const canvas = document.getElementById(canvasId);
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+
+      const W = rect.width;
+      const H = rect.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const allVals = series.flatMap(s => s.values);
+      const maxVal = Math.max(...allVals) * 1.12;
+      const padL = 48, padR = 20, padT = 28, padB = 30;
+      const plotW = W - padL - padR;
+      const plotH = H - padT - padB;
+
+      // Grid
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      ctx.font = '10px JetBrains Mono';
+      ctx.fillStyle = '#64748b';
+      ctx.textAlign = 'right';
+
+      for (let g = 0; g <= 4; g++) {
+        const val = (maxVal * g) / 4;
+        const y = padT + plotH - (plotH * g) / 4;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(padL + plotW, y);
+        ctx.stroke();
+        ctx.fillText(`${Math.round(val)}${unit}`, padL - 6, y + 3);
+      }
+
+      // Eje X
+      ctx.textAlign = 'center';
+      xLabels.forEach((lbl, idx) => {
+        const x = padL + (plotW * idx) / (xLabels.length - 1);
+        ctx.fillText(lbl, x, H - 10);
+      });
+
+      // Series
+      series.forEach(s => {
+        ctx.strokeStyle = s.color;
+        ctx.fillStyle = s.color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        s.values.forEach((v, idx) => {
+          const x = padL + (plotW * idx) / (xLabels.length - 1);
+          const y = padT + plotH - (v / maxVal) * plotH;
+          if (idx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        s.values.forEach((v, idx) => {
+          const x = padL + (plotW * idx) / (xLabels.length - 1);
+          const y = padT + plotH - (v / maxVal) * plotH;
+          ctx.beginPath();
+          ctx.arc(x, y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      });
+
+      // Leyenda
+      let legX = padL;
+      ctx.textAlign = 'left';
+      ctx.font = '11px Inter';
+      series.forEach(s => {
+        ctx.fillStyle = s.color;
+        ctx.fillRect(legX, 6, 10, 10);
+        ctx.fillStyle = '#334155';
+        ctx.fillText(s.label, legX + 14, 15);
+        legX += ctx.measureText(s.label).width + 28;
+      });
+    }
+
+    // 11. Renderizado Pestaña 3: Tabla de Eventos Discretos
+    function renderEventsTable() {
+      if (!state.trace) return;
+      const filter = document.getElementById('eventFilterSelect').value;
+      const filtered = state.trace.eventsLog.filter(ev => filter === 'ALL' || ev.category === filter);
+
+      document.getElementById('eventsTableBody').innerHTML = filtered.map((ev, idx) => {
+        let badgeCls = 'bg-slate-100 text-slate-700';
+        if (ev.category === 'LOSS') badgeCls = 'bg-rose-100 text-rose-800';
+        else if (ev.category === 'TIMEOUT') badgeCls = 'bg-amber-100 text-amber-800';
+        else if (ev.category === 'ACK') badgeCls = 'bg-emerald-100 text-emerald-800';
+        else if (ev.category === 'SEND') badgeCls = 'bg-blue-100 text-blue-800';
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2 px-3 text-slate-400">${idx + 1}</td>
+            <td class="py-2 px-3 font-semibold text-slate-800">${ev.t.toFixed(2)} ms</td>
+            <td class="py-2 px-3">${ev.protocol}</td>
+            <td class="py-2 px-3"><span class="px-2 py-0.5 rounded text-[11px] font-bold ${badgeCls}">${ev.evType}</span></td>
+            <td class="py-2 px-3 font-bold">#${ev.seq}</td>
+            <td class="py-2 px-3 font-sans text-slate-700">${ev.desc}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // 12. Actualización Pestaña 4: Validación Teórica
+    function updateTheoryTab() {
+      const p = state.lossProb;
+      const okProb = Math.pow(1 - p, 2);
+      const failProb = 1 - okProb;
+      document.getElementById('theoryFormulaSub').textContent = `1 - (1 - ${p.toFixed(2)})² = 1 - ${okProb.toFixed(4)}`;
+      document.getElementById('theoryFailResult').textContent = `${(failProb * 100).toFixed(2)}%`;
+    }
+
+    // Listeners en tiempo real para sliders
+    ['protocolSelect', 'lossSlider', 'winSlider', 'pktSlider', 'seedInput'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        runFullSimulation();
+      });
+    });
+
+    window.addEventListener('resize', () => {
+      if (!document.getElementById('tab-live').classList.contains('hidden')) {
+        renderLiveFrame();
+      } else if (!document.getElementById('tab-mc').classList.contains('hidden')) {
+        renderMonteCarloSection();
+      }
+    });
+
+    // Inicialización al cargar
+    window.onload = function() {
+      runFullSimulation();
+    };
+  </script>
+</body>
+</html>
